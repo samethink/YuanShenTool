@@ -1,0 +1,23 @@
+# 模拟动作延迟
+action_delay: 0.2
+
+# 选择OCR平台
+ocr_platform: local
+
+# OCR配置
+ocr_config:
+    local:
+        use_gpu: no
+        lang_list:
+            - ch_sim
+            - en
+    baidu:
+        api_key:
+        secret_key:
+
+# 仅供调试使用
+debug_mode: yes
+
+# 日志配置
+log_level: DEBUG
+log_format: $asctime $levelname $module $funcName $lineno $message

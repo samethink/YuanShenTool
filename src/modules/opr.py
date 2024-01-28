@@ -16,6 +16,7 @@ import keyboard
 from src.modules.base import Automize, config, logger
 from src.modules.ocr import DEBUG_MODE, get_ocr
 from src.utils.inv import get_numerical_inventory, match_requirement, save_numerical_inventory
+from src.utils.img import count_pixels_of_color
 
 
 class OPR:
@@ -36,12 +37,54 @@ class OPR:
             logger.error(f'An exception occurred: {traceback.format_exc()}')
             self.ocr_exception = exc
 
+    def cooking(self, count=1):
+        if not self.auto.activate_window():
+            return False, self.auto.window_title + '未启动！'
+
+        def on_escape():
+            nonlocal stop_execution
+            stop_execution = True
+
+        stop_execution = False
+        keyboard.add_hotkey('ESC', callback=on_escape)
+
+        scan_rect = 520, 680, 1400, 860
+        best_area_color = 255, 192, 64
+        begin_best_area = None
+
+        for c in range(count):
+            if stop_execution or self.StopAll:
+                break
+
+            self.auto.click(1030, 1030)
+            self.auto.waiting(1)
+            if begin_best_area is None:
+                begin_image = self.auto.take_screenshot(*scan_rect)
+                begin_best_area = count_pixels_of_color(begin_image, best_area_color, tolerance=10, _show_result=False)
+                logger.debug(f'初始最佳区域面积：{begin_best_area}')
+
+            for _ in range(100):
+                panel_image = self.auto.take_screenshot(*scan_rect)
+                now_best_area = count_pixels_of_color(panel_image, best_area_color, tolerance=10)
+                if begin_best_area - now_best_area > 50:
+                    logger.debug(f'当前最佳区域面积：{now_best_area}')
+                    logger.info('到达最佳区域，点击结束')
+                    self.auto.click(960, 940)
+                    break
+
+            self.auto.waiting(7)
+            self.auto.click(1020, 910)
+
+        keyboard.remove_hotkey(on_escape)
+        if stop_execution:
+            return False, '操作停止'
+        return True, '操作成功'
+
     def play_plots(self):
         """自动播放剧情
 
         :return: 返回成功标志，结果消息
         """
-        self.auto.refresh_window_handle()
         if not self.auto.activate_window():
             return False, self.auto.window_title + '未启动！'
 
@@ -102,7 +145,6 @@ class OPR:
             return False, f'OCR启用不成功：{self.ocr_exception}'
         elif self.ocr is None:
             return False, '请等待OCR完成初始化'
-        self.auto.refresh_window_handle()
         if not self.auto.activate_window():
             return False, self.auto.window_title + '未启动！'
 
@@ -216,6 +258,7 @@ class ImplementBuyCommodities:
             if not DEBUG_MODE:
                 # 确定兑换
                 self.opr.auto.click(1210, 800)
+                self.opr.auto.waiting(1)
                 # 点击空白
                 self.opr.auto.click(1210, 800)
             else:
@@ -243,10 +286,7 @@ class ImplementBuyCommodities:
 
 
 if __name__ == '__main__':
-    from src.utils.tool import load_yaml_file
-
     logger.info('start..')
     yuan = OPR()
-    reqs = load_yaml_file('resource/inventory.yaml')
-    res = yuan.buy_commodities(input('$ stuff/blueprint: \n'))
+    res = yuan.cooking(10)
     logger.info(res)

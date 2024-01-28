@@ -51,18 +51,34 @@ class BaseOCR(ABC):
         """
 
     def record_detected_image(self, image_bytes, detection, detail):
-        image = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), flags=cv2.IMREAD_UNCHANGED)
+        """记录识别结果并附在图片上
+
+        :param image_bytes: 图片字节流
+        :param detection: 识别结果
+        :param detail: 结果是否存在位置等细节
+        :return:
+        """
+        image_array = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), flags=cv2.IMREAD_UNCHANGED)
 
         if detail:
-            for di in detection:
-                top_left = di[0][0]
-                bottom_right = di[0][2]
-                image = cv2.rectangle(image, top_left, bottom_right, (0, 255, 0), 1)
-                image = cv2.putText(image, di[1], top_left, cv2.FONT_HERSHEY_SIMPLEX,
-                                    1, (255, 0, 0), 1, cv2.LINE_AA)
+            for item in detection:
+                top_left = item[0][0]
+                bottom_right = item[0][2]
+                text = '%s (%.3f)' % (item[1], item[2])
+                image_array = cv2.rectangle(image_array, pt1=top_left, pt2=bottom_right, color=(0, 255, 0), thickness=1)
+                image_array = cv2.putText(image_array, text=text, org=top_left,
+                                          fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.6, color=(0, 0, 255),
+                                          thickness=1, lineType=cv2.LINE_AA)
+        else:
+            left_top = [1, 20]
+            for text in detection:
+                image_array = cv2.putText(image_array, text=text, org=left_top,
+                                          fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.6, color=(0, 0, 255),
+                                          thickness=1, lineType=cv2.LINE_AA)
+                left_top[1] += 20
 
         img_path = '%s/%s-%03d.png' % (SCREENSHOTS_DIR, time.strftime('%H%M%S'), self.__count)
-        cv2.imwrite(img_path, image)
+        cv2.imwrite(img_path, image_array)
         logger.debug(f'图像[{img_path}]识别结果: {detection}')
         self.__count += 1
 

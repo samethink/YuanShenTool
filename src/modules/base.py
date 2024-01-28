@@ -68,6 +68,7 @@ class Automize:
         logger.info(f'句柄={self.window_handle}')
 
     def activate_window(self) -> bool:
+        self.refresh_window_handle()
         if self.window_handle:
             win32gui.ShowWindow(self.window_handle, win32con.SW_RESTORE)
             win32gui.SetForegroundWindow(self.window_handle)

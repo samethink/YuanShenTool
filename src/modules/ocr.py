@@ -77,7 +77,7 @@ class BaseOCR(ABC):
                                           thickness=1, lineType=cv2.LINE_AA)
                 left_top[1] += 20
 
-        img_path = '%s/%s-%03d.png' % (SCREENSHOTS_DIR, time.strftime('%H%M%S'), self.__count)
+        img_path = '%s/%s-%03d_ocr.png' % (SCREENSHOTS_DIR, time.strftime('%H%M%S'), self.__count)
         cv2.imwrite(img_path, image_array)
         logger.debug(f'图像[{img_path}]识别结果: {detection}')
         self.__count += 1

@@ -57,17 +57,17 @@ class OPR:
                 break
 
             self.auto.click(1030, 1030)
-            self.auto.waiting(1)
+            self.auto.waiting(2)
             if begin_best_area is None:
-                begin_image = self.auto.take_screenshot(*scan_rect)
-                begin_best_area = count_pixels_of_color(begin_image, best_area_color, tolerance=10, _show_result=False)
-                logger.debug(f'初始最佳区域面积：{begin_best_area}')
+                begin_image = self.auto.take_screenshot_as_image(*scan_rect)
+                begin_best_area = count_pixels_of_color(begin_image, best_area_color, tolerance=5)
+                logger.info(f'初始最佳区域面积：{begin_best_area}')
 
-            for _ in range(100):
-                panel_image = self.auto.take_screenshot(*scan_rect)
-                now_best_area = count_pixels_of_color(panel_image, best_area_color, tolerance=10)
-                if begin_best_area - now_best_area > 50:
-                    logger.debug(f'当前最佳区域面积：{now_best_area}')
+            for _ in range(300):
+                panel_image = self.auto.take_screenshot_as_image(*scan_rect)
+                now_best_area = count_pixels_of_color(panel_image, best_area_color, tolerance=5)
+                logger.debug(f'PIXELS NUM: {now_best_area}')
+                if begin_best_area - now_best_area > 100:
                     logger.info('到达最佳区域，点击结束')
                     self.auto.click(960, 940)
                     break
@@ -91,7 +91,7 @@ class OPR:
         logger.info('[开始]播放剧情')
         switch = True
         stop_execution = False
-        playing_delay = 0.5
+        playing_delay = 0.1
 
         def pause():
             nonlocal switch

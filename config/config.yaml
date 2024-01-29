@@ -16,7 +16,7 @@ ocr_config:
         secret_key:
 
 # 仅供调试使用
-debug_mode: yes
+debug_mode: no
 
 # 日志配置
 log_level: DEBUG

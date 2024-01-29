@@ -6,41 +6,57 @@ Path: src/utils/img.py
 IDE: PyCharm
 Description: 图像处理有关方法
 """
-import io
+
+import time
 
 import numpy as np
 from PIL import Image
 
+from src.modules.ocr import DEBUG_MODE, SCREENSHOTS_DIR
 
-def count_pixels_of_color(image_bytes, target_color, tolerance=0, _show_result=False):
+
+class Debug:
+    __count = 0
+
+    @classmethod
+    def record(cls, image, number):
+        image_path = '%s/%s-%03d_img_%d.png' % (SCREENSHOTS_DIR, time.strftime('%H%M%S'), cls.__count, number)
+        with open(image_path, 'wb') as image_file:
+            image.save(image_file)
+        cls.__count += 1
+
+
+def count_pixels_of_color(image: Image.Image, target_color: tuple, tolerance=0):
     """计算图片中给定颜色的像素数量
 
     相当于计算图片中某种颜色区域的面积
 
-    :param image_bytes: 图片字节流
+    :param image: 图片对象
     :param target_color: 目标颜色
     :param tolerance: 容差
-    :param _show_result: 展示匹配效果
     :return:
     """
-    image_array = np.array(Image.open(io.BytesIO(image_bytes)))
+    image_array = np.array(image)
     target_color_array = np.array(target_color)
-    matching_pixels = np.all(np.abs(image_array - target_color_array) <= tolerance, axis=-1)
-    if _show_result:
+
+    if tolerance == 0:
+        diff_array = image_array == target_color_array
+    else:
+        diff_array = np.abs(image_array - target_color_array) <= tolerance
+    matching_pixels = np.all(diff_array, axis=-1)
+    pixels_number = np.sum(matching_pixels)
+
+    if DEBUG_MODE:
         image_array[matching_pixels] = [0, 0, 0]
         result_image = Image.fromarray(image_array)
-        result_image.show()
-    return np.sum(matching_pixels)
+        Debug.record(result_image, pixels_number)
+    return pixels_number
 
 
 if __name__ == '__main__':
-    import time
-
-    image_path = 'debug/testdata/test1.png'
-    file = open(image_path, 'rb')
-    image = file.read()
-    start = time.perf_counter()
-    pixel_count = count_pixels_of_color(image, (255, 192, 63), tolerance=50, _show_result=False)
-    print(time.perf_counter() - start)
-    file.close()
-    print(f'匹配像素数量：{pixel_count}')
+    with open('debug/testdata/test1.png', 'rb') as fp:
+        img = Image.open(fp)
+        start = time.perf_counter()
+        num = count_pixels_of_color(img, (255, 192, 64), tolerance=10)
+        print(time.perf_counter() - start)
+    print(f'匹配像素数量：{num}')

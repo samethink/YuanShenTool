@@ -17,6 +17,7 @@ import mss.tools
 import win32api
 import win32con
 import win32gui
+from PIL import Image
 
 from src.utils.tool import read_config
 
@@ -109,8 +110,12 @@ class Automize:
     mss_sct = mss.mss()
 
     def take_screenshot(self, x1, y1, x2, y2) -> bytes:
-        sct_img = self.mss_sct.grab((x1, y1, x2, y2))
-        return mss.tools.to_png(sct_img.rgb, sct_img.size)
+        screenshot = self.mss_sct.grab((x1, y1, x2, y2))
+        return mss.tools.to_png(screenshot.rgb, screenshot.size)
+
+    def take_screenshot_as_image(self, x1, y1, x2, y2) -> Image.Image:
+        screenshot = self.mss_sct.grab((x1, y1, x2, y2))
+        return Image.frombytes('RGB', screenshot.size, screenshot.rgb)
 
 
 if __name__ == '__main__':

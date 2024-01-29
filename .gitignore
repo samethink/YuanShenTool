@@ -1,6 +1,9 @@
 .idea/
 debug/
 
+file_version_info.txt
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

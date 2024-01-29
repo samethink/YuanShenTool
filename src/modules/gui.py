@@ -9,7 +9,7 @@ Description: 实现图形界面
 import threading
 import tkinter as tk
 import traceback
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 
 import yaml
 
@@ -73,6 +73,9 @@ class MainWindow:
 
         add('自动剧情', callback=self.play_plots,
             tips='自动点击过剧情，可[→]加快或[←]减慢\n[CapsLock]键暂停\n[ALT+Q]键退出')
+
+        add('自动烹饪', callback=self.cooking,
+            tips='自动烹饪完美料理！\n[ESC]键退出')
 
     def __check_opr_module(self) -> (bool, str):
         if self.opr is None:
@@ -146,13 +149,16 @@ class MainWindow:
             for key, value in data.items():
                 textbox.insert(tk.END, f'{key}: ', 'key')
                 textbox.insert(tk.END, f'{value}\n', 'value')
-        except yaml.YAMLError as e:
-            logger.info(e)
+        except yaml.YAMLError as ye:
+            logger.info(ye)
+        except AttributeError:
+            pass
 
         def save_data():
             text = textbox.get('1.0', tk.END).replace(':', ': ').replace('：', ': ')
-            if text:
-                if validate_text_inventory(text + '\n'):
+            logger.debug(f'{text=}')
+            if text != '\n':
+                if validate_text_inventory(text):
                     save_text_inventory(text)
                     sub_win.destroy()
                 else:
@@ -178,6 +184,15 @@ class MainWindow:
         pp_thr = threading.Thread(target=pp, name='pp')
         pp_thr.daemon = True
         pp_thr.start()
+
+    def cooking(self):
+        symbol, message = self.__check_opr_module()
+        if symbol:
+            count = simpledialog.askinteger(' ', '请输入次数：', initialvalue=15, minvalue=1, maxvalue=20)
+            if count is None:
+                return
+            symbol, message = self.opr.cooking(count)
+        messagebox.showinfo('完成' if symbol else '失败', message)
 
     def display(self):
         self.root.mainloop()

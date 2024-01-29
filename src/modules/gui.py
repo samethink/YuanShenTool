@@ -31,7 +31,7 @@ class MainWindow:
         self.root.iconbitmap('resource/favicon.ico')
 
         self.set_background('resource/background.png')
-        self.put_buttons()
+        self.add_buttons()
 
         self.root.protocol('WM_DELETE_WINDOW', self.on_closing)
         logger.info('GUI -ok')
@@ -50,31 +50,38 @@ class MainWindow:
         label.place(relwidth=1, relheight=1)
         label.image = bg_image
 
-    def put_buttons(self):
-        button_origin_pos = [80, 400]
+    def add_buttons(self):
+        origin_x = 80
+        button_position = [origin_x, 400]
 
-        def add(text: str, callback: (), tips: str = None):
+        def put(text: str, callback: (), tips: str = None, next_line=False):
+            nonlocal origin_x, button_position
+            if next_line:
+                origin_x += 10
+                button_position[0] = origin_x
+                button_position[1] += 40
             button = tk.Button(self.root, text=text, command=callback)
-            button.place(x=button_origin_pos[0], y=button_origin_pos[1])
-            button_origin_pos[0] += 80
+            button.place(x=button_position[0], y=button_position[1])
+            button_position[0] += 80
             Tooltip(button, text if tips is None else tips)
 
-        add('购买摆设', callback=lambda: self.buy_commodities('stuff'),
+        put('购买摆设', callback=lambda: self.buy_commodities('stuff'),
             tips='『尘歌壶-洞天百宝』\n自动根据清单购买摆设，需已打开与壶灵的对话列表\n[ESC]键退出')
 
-        add('购买图纸', callback=lambda: self.buy_commodities('blueprint'),
+        put('购买图纸', callback=lambda: self.buy_commodities('blueprint'),
             tips='『尘歌壶-洞天百宝』\n自动根据清单购买摆设图纸，需已打开与壶灵的对话列表\n[ESC]键退出')
 
-        add('录入清单', callback=self.open_input_textbox,
+        put('录入清单', callback=self.open_input_textbox,
             tips='输入原始文本，格式化为工具可用的需求清单')
 
-        add('打开清单', callback=self.open_edit_textbox,
+        put('打开清单', callback=self.open_edit_textbox,
             tips='查看需求清单，可编辑并保存')
 
-        add('自动剧情', callback=self.play_plots,
-            tips='自动点击过剧情，可[→]加快或[←]减慢\n[CapsLock]键暂停\n[ALT+Q]键退出')
+        put('播放剧情', callback=self.play_plots,
+            tips='自动点击过剧情，可[→]加快或[←]减慢\n[CapsLock]键暂停\n[ALT+Q]键退出',
+            next_line=True)
 
-        add('自动烹饪', callback=self.cooking,
+        put('烹饪料理', callback=self.cooking,
             tips='自动烹饪完美料理！\n[ESC]键退出')
 
     def __check_opr_module(self) -> (bool, str):
@@ -110,7 +117,8 @@ class MainWindow:
         textbox.pack(fill='both', expand=True)
         btn_frame = tk.Frame(sub_win)
         btn_frame.pack(side='bottom', fill='x')
-        topmost_button = tk.Button(btn_frame, text='置顶', command=lambda: self.__toggle_topmost(sub_win, topmost_button))
+        topmost_button = tk.Button(btn_frame, text='置顶',
+                                   command=lambda: self.__toggle_topmost(sub_win, topmost_button))
         topmost_button.pack(side='left', padx=10)
         cancel_button = tk.Button(btn_frame, text='取消', command=sub_win.destroy)
         cancel_button.pack(side='right', padx=10)

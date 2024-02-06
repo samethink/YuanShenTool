@@ -14,9 +14,6 @@ import time
 
 import mss
 import mss.tools
-import win32api
-import win32con
-import win32gui
 from PIL import Image
 
 from src.utils.tool import read_config
@@ -62,35 +59,35 @@ class Automize:
         self.refresh_window_handle()
 
         self.ACTION_DELAY = config['action_delay']
-        self.SCREEN_SIZE = win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1)
+        self.SCREEN_SIZE = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
 
     def refresh_window_handle(self):
-        self.window_handle = win32gui.FindWindow(self.window_classname, self.window_title)
+        self.window_handle = ctypes.windll.user32.FindWindow(self.window_classname, self.window_title)
         logger.info(f'句柄={self.window_handle}')
 
     def activate_window(self) -> bool:
         self.refresh_window_handle()
         if self.window_handle:
-            win32gui.ShowWindow(self.window_handle, win32con.SW_RESTORE)
-            win32gui.SetForegroundWindow(self.window_handle)
+            ctypes.windll.user32.ShowWindow(self.window_handle, 9)
+            ctypes.windll.user32.SetForegroundWindow(self.window_handle)
             self.waiting(1)
             return True
         return False
 
     def get_window_position(self) -> tuple | None:
-        return win32gui.GetWindowRect(self.window_handle)
+        return ctypes.windll.user32.GetWindowRect(self.window_handle)
 
     def is_window_on_top(self) -> bool:
-        return self.window_handle == win32gui.GetForegroundWindow()
+        return self.window_handle == ctypes.windll.user32.GetForegroundWindow()
 
     def move_to(self, x: int, y: int):
-        win32api.SetCursorPos((x, y))
+        ctypes.windll.user32.SetCursorPos((x, y))
         self.waiting(0)
 
     def click(self, x: int, y: int):
-        win32api.SetCursorPos((x, y))
-        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, x, y, 0, 0)
-        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
+        ctypes.windll.user32.SetCursorPos((x, y))
+        ctypes.windll.user32.mouse_event(2, x, y, 0, 0)
+        ctypes.windll.user32.mouse_event(4, x, y, 0, 0)
         self.waiting(1)
 
     def scroll(self, count: int, duration: float = None):
@@ -100,7 +97,7 @@ class Automize:
         count = abs(count)
         delay = duration / count
         for _ in range(count):
-            win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, symbol)
+            ctypes.windll.user32.mouse_event(8, 0, 0, symbol)
             time.sleep(delay)
         self.waiting(1)
 

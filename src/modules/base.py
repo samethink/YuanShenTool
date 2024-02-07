@@ -59,7 +59,12 @@ class Automize:
         self.refresh_window_handle()
 
         self.ACTION_DELAY = config['action_delay']
+
+        # 标准分辨率：1920x1080，代码中的 x/y 坐标数值是基于该分辨率下的
         self.SCREEN_SIZE = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
+        logger.info('屏幕尺寸：%dx%d' % self.SCREEN_SIZE)
+        self.__x_ratio = self.SCREEN_SIZE[0] / 1920
+        self.__y_ratio = self.SCREEN_SIZE[1] / 1080
 
     def refresh_window_handle(self):
         self.window_handle = ctypes.windll.user32.FindWindow(self.window_classname, self.window_title)
@@ -81,10 +86,11 @@ class Automize:
         return self.window_handle == ctypes.windll.user32.GetForegroundWindow()
 
     def move_to(self, x: int, y: int):
-        ctypes.windll.user32.SetCursorPos((x, y))
-        self.waiting(0)
+        ctypes.windll.user32.SetCursorPos((x * self.__x_ratio, y * self.__y_ratio))
 
     def click(self, x: int, y: int):
+        x *= self.__x_ratio
+        y *= self.__y_ratio
         ctypes.windll.user32.SetCursorPos((x, y))
         ctypes.windll.user32.mouse_event(2, x, y, 0, 0)
         ctypes.windll.user32.mouse_event(4, x, y, 0, 0)
@@ -106,12 +112,16 @@ class Automize:
 
     mss_sct = mss.mss()
 
+    def __screenshot(self, x1, y1, x2, y2):
+        return self.mss_sct.grab((x1 * self.__x_ratio, y1 * self.__y_ratio,
+                                  x2 * self.__x_ratio, y2 * self.__y_ratio))
+
     def take_screenshot(self, x1, y1, x2, y2) -> bytes:
-        screenshot = self.mss_sct.grab((x1, y1, x2, y2))
+        screenshot = self.__screenshot(x1, y1, x2, y2)
         return mss.tools.to_png(screenshot.rgb, screenshot.size)
 
     def take_screenshot_as_image(self, x1, y1, x2, y2) -> Image.Image:
-        screenshot = self.mss_sct.grab((x1, y1, x2, y2))
+        screenshot = self.__screenshot(x1, y1, x2, y2)
         return Image.frombytes('RGB', screenshot.size, screenshot.rgb)
 
 

@@ -41,8 +41,9 @@ class MainWindow:
             logger.info('init OPR..')
             self.opr = OPR()
             logger.info('OPR -ok')
-        except PermissionError as pe:
-            logger.error(pe)
+        except Exception as exc:
+            logger.critical(f'OPR初始化错误：{exc}')
+            logger.error(f'An exception occurred: {traceback.format_exc()}')
 
     def set_background(self, png_path):
         bg_image = tk.PhotoImage(file=png_path)

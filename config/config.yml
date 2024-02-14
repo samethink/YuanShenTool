@@ -1,8 +1,8 @@
 # 模拟动作延迟
-action_delay: 0.2
+action_delay: 0.3
 
 # 选择OCR平台
-ocr_platform: local
+ocr_platform: baidu
 
 # OCR配置
 ocr_config:
@@ -21,3 +21,6 @@ debug_mode: no
 # 日志配置
 log_level: DEBUG
 log_format: $asctime $levelname $module $funcName $lineno $message
+
+# 生成清单Excel时是否插入图片
+insert_image: yes

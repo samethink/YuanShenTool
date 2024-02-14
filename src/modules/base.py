@@ -7,37 +7,13 @@ IDE: PyCharm
 Description: 定义窗口基础动作
 """
 import ctypes
-import logging
-import os
-import sys
 import time
 
 import mss
 import mss.tools
 from PIL import Image
 
-from src.utils.tool import read_config
-
-
-def get_logger() -> logging.Logger:
-    ret = logging.getLogger(__file__)
-    ret.setLevel(config['log_level'])
-    formatter = logging.Formatter(config['log_format'], style='$')
-
-    if not os.path.exists('debug/'):
-        os.mkdir('debug/')
-    file_handle = logging.FileHandler('debug/record.log', mode='w', encoding='UTF-8')
-    file_handle.setFormatter(formatter)
-    ret.addHandler(file_handle)
-
-    stream_handle = logging.StreamHandler(sys.stdout)
-    stream_handle.setFormatter(formatter)
-    ret.addHandler(stream_handle)
-    return ret
-
-
-config = read_config('config/config.yaml')
-logger = get_logger()
+from src.utils.support import logger, config
 
 
 class Automize:

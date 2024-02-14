@@ -11,11 +11,10 @@ from abc import ABC, abstractmethod
 
 import requests
 
-from src.modules.base import config, logger
 from src.utils.cyber import *
+from src.utils.support import DEBUG_MODE, config, logger
 
 ocr_config = config['ocr_config']
-DEBUG_MODE = config['debug_mode']
 SCREENSHOTS_DIR = 'debug/screenshots/'
 
 if DEBUG_MODE:

@@ -11,6 +11,9 @@ import re
 import socket
 import urllib.parse
 
+UA = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 '
+      'Safari/537.36 Edg/121.0.0.0')
+
 
 class DotDict(dict):
     """自定义字典类，可以使用"dict.key"的方式来使用字典值"""

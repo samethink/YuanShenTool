@@ -13,10 +13,11 @@ from typing import Literal
 
 import keyboard
 
-from src.modules.base import Automize, config, logger
-from src.modules.ocr import DEBUG_MODE, get_ocr
-from src.utils.inv import get_numerical_inventory, match_requirement, save_numerical_inventory
+from src.modules.base import Automize
+from src.modules.inv import HandleInv
+from src.modules.ocr import get_ocr
 from src.utils.img import count_pixels_of_color
+from src.utils.support import DEBUG_MODE, config, logger
 
 
 class OPR:
@@ -133,12 +134,13 @@ class OPR:
         keyboard.remove_hotkey(speed_up)
         return True, '结束自动播放'
 
-    def buy_commodities(self, shelf: Literal['stuff', 'blueprint']):
+    def buy_commodities(self, shelf: Literal['stuff', 'blueprint'], inv_file):
         """自动读取需求清单，购买洞天摆设或图纸
 
         需已打开与壶灵的对话列表
 
         :param shelf: stuff=摆设，blueprint=图纸
+        :param inv_file: 保存清单的Excel文件名称
         :return: 返回成功标志，结果信息
         """
         if hasattr(self, 'ocr_exception'):
@@ -161,13 +163,13 @@ class OPR:
                 return False, 'shelf参数错误'
         self.auto.waiting(1.5)
 
-        return ImplementBuyCommodities(self).main(shelf)
+        return ImplementBuyCommodities(self, inv_file).main(shelf)
 
 
 class ImplementBuyCommodities:
-    def __init__(self, opr_obj):
+    def __init__(self, opr_obj, inv_file):
         self.opr = opr_obj
-        self.inventory = get_numerical_inventory()
+        self.inventory = HandleInv(inv_file)
         self.ignored_set = set()
         self.stop_execution = False
 
@@ -178,7 +180,7 @@ class ImplementBuyCommodities:
         keyboard.add_hotkey('ESC', self.on_escape)
 
     def main(self, shelf):
-        if not self.inventory:
+        if not self.inventory.data:
             return False, '清单是空的'
 
         first_text = ''
@@ -201,7 +203,7 @@ class ImplementBuyCommodities:
                 continue
 
             # 检查有没有买完
-            if len(self.inventory) == len(self.ignored_set):
+            if len(self.inventory.data) == len(self.ignored_set):
                 logger.info('购买完成')
                 break
 
@@ -216,7 +218,7 @@ class ImplementBuyCommodities:
                 logger.info('剩余商品已无法购买')
                 break
 
-        save_numerical_inventory(self.inventory)
+        self.inventory.save_data()
         keyboard.remove_hotkey(self.on_escape)
         if self.stop_execution:
             return False, '操作停止'
@@ -228,18 +230,16 @@ class ImplementBuyCommodities:
             if self.stop_execution or self.opr.StopAll:
                 return False
 
-            rect, text, reliability = item
-            if text in self.ignored_set:
-                logger.info(f'已忽略：{text}')
+            rect, item_name, reliability = item
+            if item_name in self.ignored_set:
+                logger.info(f'已忽略：{item_name}')
                 continue
 
-            matched_req, score = match_requirement(self.inventory, text)
-            logger.debug(f'识别相似度：({matched_req}) / ({text}) = {score}')
-            if matched_req is None:
+            if item_name not in self.inventory.data:
                 continue
 
-            needed_num, existing_num = self.inventory[matched_req].values()
-            logger.info('[%s]需求\\已有：%d\\%d' % (matched_req, needed_num, existing_num))
+            needed_num, existing_num = self.inventory.data[item_name]
+            logger.info('「%s」：%d\\%d' % (item_name, needed_num, existing_num))
             if needed_num <= existing_num:
                 logger.info('物品数量已足够')
                 continue
@@ -251,7 +251,7 @@ class ImplementBuyCommodities:
             if shelf == 'stuff':
                 # 增加购买数量
                 purchase_num, limited_num = self.click_increase_purchase_num_button(needed_num - existing_num)
-                self.inventory[matched_req]['existing'] = existing_num + purchase_num
+                self.inventory.data[item_name][1] = existing_num + purchase_num
             else:
                 purchase_num, limited_num = 1, 1
             logger.info(f'购买数量：{purchase_num}')
@@ -264,7 +264,7 @@ class ImplementBuyCommodities:
             else:
                 # 取消
                 self.opr.auto.click(800, 780)
-            self.ignored_set.add(text)
+            self.ignored_set.add(item_name)
             if purchase_num == limited_num:
                 return True
         return False

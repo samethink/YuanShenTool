@@ -6,21 +6,27 @@ Path: src/utils/img.py
 IDE: PyCharm
 Description: 图像处理有关方法
 """
-
+import os
 import time
 
 import numpy as np
 from PIL import Image
 
-from src.modules.ocr import DEBUG_MODE, SCREENSHOTS_DIR
+from src.utils.support import DEBUG_MODE
 
 
 class Debug:
     __count = 0
+    __temp_dir = 'debug/img/'
+    if os.path.exists(__temp_dir):
+        for filename in os.listdir(__temp_dir):
+            os.remove(__temp_dir + filename)
+    else:
+        os.makedirs(__temp_dir)
 
     @classmethod
     def record(cls, image, number):
-        image_path = '%s/%s-%03d_img_%d.png' % (SCREENSHOTS_DIR, time.strftime('%H%M%S'), cls.__count, number)
+        image_path = '%s/%s-%03d[%d].png' % (cls.__temp_dir, time.strftime('%H%M%S'), cls.__count, number)
         with open(image_path, 'wb') as image_file:
             image.save(image_file)
         cls.__count += 1

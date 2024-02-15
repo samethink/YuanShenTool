@@ -1,0 +1,22 @@
+# 模拟动作延迟
+action_delay: 0.3
+
+# 选择OCR平台
+ocr_platform: baidu_ocr
+
+# 本地OCR配置
+local_ocr:
+    use_gpu: no
+    lang_list:
+        - ch_sim
+        - en
+
+# 仅供调试使用
+debug_mode: no
+
+# 日志配置
+log_level: DEBUG
+log_format: $levelname $asctime $module $funcName $lineno $message
+
+# 生成清单Excel时是否插入图片
+insert_image: yes

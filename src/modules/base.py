@@ -13,7 +13,7 @@ import mss
 import mss.tools
 from PIL import Image
 
-from src.utils.support import logger, config
+from src.utils.support import logger, pub_config
 
 
 class Automize:
@@ -34,7 +34,7 @@ class Automize:
         self.window_handle = None
         self.refresh_window_handle()
 
-        self.ACTION_DELAY = config['action_delay']
+        self.ACTION_DELAY = pub_config['action_delay']
 
         # 标准分辨率：1920x1080，代码中的 x/y 坐标数值是基于该分辨率下的
         self.SCREEN_SIZE = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)

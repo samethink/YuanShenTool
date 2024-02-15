@@ -6,19 +6,19 @@ Path: src/modules/ocr.py
 IDE: PyCharm
 Description: 实现本地及云端OCR类
 """
+import os
 import time
 from abc import ABC, abstractmethod
 
 import requests
 
+from src.utils.common import read_config, save_config
 from src.utils.cyber import *
-from src.utils.support import DEBUG_MODE, config, logger
+from src.utils.support import DEBUG_MODE, logger, pub_config
 
-ocr_config = config['ocr_config']
 SCREENSHOTS_DIR = 'debug/screenshots/'
 
 if DEBUG_MODE:
-    import os
     import cv2
     import numpy as np
 
@@ -29,34 +29,12 @@ if DEBUG_MODE:
         os.mkdir(SCREENSHOTS_DIR)
 
 
-class BaseOCR(ABC):
+class BaseOCR:
     def __init__(self):
         self.__count = 0
 
-    @abstractmethod
-    def scan_image(self,
-                   image_bytes: bytes,
-                   ret_detail: bool,
-                   compression_ratio=1) -> list[list[tuple[int] | str | float]] | list[str]:
-        """识别图像中的文本
-
-        为统一OCR识别图片方法的输入输出格式，新建OCR类需按照规则重写本方法。
-
-        :param image_bytes: 图片字节流
-        :param ret_detail: 是否返回更多细节
-        :param compression_ratio: 压缩图片比例
-        :return: 当ret_detail为真，每项按照 [矩形顶点位置, 识别文字, 可信度] 的格式放入列表中再返回；
-                 否则，直接将识别到的文字放入一个列表中返回。
-        """
-
-    def record_detected_image(self, image_bytes, detection, detail):
-        """记录识别结果并附在图片上
-
-        :param image_bytes: 图片字节流
-        :param detection: 识别结果
-        :param detail: 结果是否存在位置等细节
-        :return:
-        """
+    def __record_detected_image(self, image_bytes, detection, detail):
+        """供调试使用，记录图片识别结果"""
         image_array = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), flags=cv2.IMREAD_UNCHANGED)
 
         if detail:
@@ -88,24 +66,61 @@ class EasyOCR(BaseOCR):
 
         super().__init__()
 
-        local_ocr_config = ocr_config['local']
+        local_ocr_config = pub_config['local_ocr']
         self.reader = easyocr.Reader(local_ocr_config['lang_list'], gpu=local_ocr_config['use_gpu'])
 
     def scan_image(self, image_bytes, ret_detail, compression_ratio=1):
         detection = self.reader.readtext(image_bytes, detail=ret_detail, mag_ratio=compression_ratio,
                                          text_threshold=0.75, link_threshold=0.05)
         if DEBUG_MODE:
-            self.record_detected_image(image_bytes, detection, ret_detail)
+            self.__record_detected_image(image_bytes, detection, ret_detail)
         return detection
 
 
-class BaiduOCR(BaseOCR):
-    def __init__(self):
-        super().__init__()
+class CloudOCR(BaseOCR, ABC):
+    __ocr_keys_filepath = 'config/private.yml'
 
-        baidu_ocr_config = ocr_config['baidu']
-        self.API_KEY = baidu_ocr_config['api_key']
-        self.SECRET_KEY = baidu_ocr_config['secret_key']
+    def __init__(self, ocr_name):
+        super().__init__()
+        self.__ocr_name = ocr_name
+
+    @abstractmethod
+    def scan_image(self,
+                   image_bytes: bytes,
+                   ret_detail: bool,
+                   compression_ratio=1) -> list[list[tuple[int] | str | float]] | list[str]:
+        """识别图像中的文本
+
+        :param image_bytes: 图片字节流
+        :param ret_detail: 是否返回更多细节
+        :param compression_ratio: 压缩图片比例
+        :return: 当ret_detail为真，每项按照 [矩形顶点位置, 识别文字, 可信度] 的格式放入列表中再返回；
+                 否则，直接将识别到的文字放入一个列表中返回。
+        """
+
+    def get_ocr_keys(self):
+        """获取本地已保存的key"""
+        if os.path.exists(self.__ocr_keys_filepath):
+            config = read_config(self.__ocr_keys_filepath)
+            if config and self.__ocr_name in config:
+                return config[self.__ocr_name].get('api_key'), config[self.__ocr_name].get('secret_key')
+        return None, None
+
+    def save_ocr_keys(self, api_key, secret_key):
+        """将key保存到本地"""
+        if os.path.exists(self.__ocr_keys_filepath):
+            config = read_config(self.__ocr_keys_filepath)
+            if not isinstance(config, dict):
+                config = {}
+        else:
+            config = {}
+        config.update({self.__ocr_name: {'api_key': api_key, 'secret_key': secret_key}})
+        save_config(self.__ocr_keys_filepath, config)
+
+
+class BaiduOCR(CloudOCR):
+    def __init__(self, ocr_name):
+        super().__init__(ocr_name)
 
         self.BASE_URL = 'https://aip.baidubce.com'
         self.headers = {
@@ -113,22 +128,21 @@ class BaiduOCR(BaseOCR):
             'Accept': 'application/json'
         }
         self.access_token = None
-        self.refresh_access_token()
-        if self.access_token is None:
-            raise ValueError('获取接口令牌失败')
+        self.refresh_access_token(*self.get_ocr_keys())
 
-        self.api_version = 'general'
+        self.__api_version = 'general'
 
-    def refresh_access_token(self):
+    def refresh_access_token(self, api_key, secret_key):
         api = self.BASE_URL + '/oauth/2.0/token'
-        url = api + f'?grant_type=client_credentials&client_id={self.API_KEY}&client_secret={self.SECRET_KEY}'
+        url = api + f'?grant_type=client_credentials&client_id={api_key}&client_secret={secret_key}'
         logger.debug('==> POST %s' % url)
         response = requests.post(url)
         self.access_token = response.json().get('access_token')
         logger.debug('<== %s %s %s..' % (response.status_code, api, response.text[:100]))
 
     def send_image_to_webapi(self, image_base64, locate_text=True):
-        api = self.BASE_URL + '/rest/2.0/ocr/v1/' + (self.api_version if locate_text else self.api_version + '_basic')
+        api = self.BASE_URL + '/rest/2.0/ocr/v1/' + (
+            self.__api_version if locate_text else self.__api_version + '_basic')
         url = api + f'?access_token={self.access_token}'
         payload = 'vertexes_location={1}&probability={1}&image={0}'.format(urlencoded(image_base64),
                                                                            'true' if locate_text else 'false')
@@ -158,10 +172,10 @@ class BaiduOCR(BaseOCR):
                 else:
                     detection.append(text)
         except KeyError as ke:
-            self.api_version = 'accurate'
-            raise UserWarning(f'接口返回数据错误，请重试或检查：{ke}')
+            self.__api_version = 'accurate'
+            raise Warning(f'接口返回数据错误，请重试或检查：{ke}')
         if DEBUG_MODE:
-            self.record_detected_image(image_bytes, detection, ret_detail)
+            self.__record_detected_image(image_bytes, detection, ret_detail)
         return detection
 
 
@@ -171,15 +185,13 @@ def get_ocr(ocr_name):
     :param ocr_name: OCR名称
     :return: OCR实例化的对象
     """
-    ocr_platforms = {
-        'local': EasyOCR,
-        'baidu': BaiduOCR
-    }
-    ocr_class = ocr_platforms.get(ocr_name)
-    if ocr_class:
-        logger.info(f'{ocr_class=}')
-        return ocr_class()
-    raise ValueError('选择的OCR平台不存在：%s\n可选：%s' % (ocr_name, list(ocr_platforms)))
+    ocr_class = {
+        'local_ocr': EasyOCR,
+        'baidu_ocr': BaiduOCR,
+        'google_ocr': None
+    }[ocr_name]
+    logger.info(f'{ocr_class=}')
+    return ocr_class(ocr_name)
 
 
 if __name__ == '__main__':

@@ -13,13 +13,13 @@ import sys
 
 from src.utils.common import read_config
 
-config = read_config('config/config.yml')
+pub_config = read_config('config/public.yml')
 
 
 def __get_logger() -> logging.Logger:
     ret = logging.getLogger(__file__)
-    ret.setLevel(config['log_level'])
-    formatter = logging.Formatter(config['log_format'], style='$')
+    ret.setLevel(pub_config['log_level'])
+    formatter = logging.Formatter(pub_config['log_format'], style='$')
 
     if not os.path.exists('debug/'):
         os.mkdir('debug/')
@@ -35,5 +35,5 @@ def __get_logger() -> logging.Logger:
 
 logger = __get_logger()
 
-DEBUG_MODE = config['debug_mode']
+DEBUG_MODE = pub_config['debug_mode']
 SYSTEM_NAME = platform.system()

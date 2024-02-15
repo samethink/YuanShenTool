@@ -13,7 +13,7 @@ import traceback
 from tkinter import messagebox, simpledialog
 from tkinter.ttk import Combobox
 
-from src.modules.inv import FetchInv
+from src.modules.inv import FetchInv, get_inv_filelist
 from src.modules.opr import OPR
 from src.utils.support import SYSTEM_NAME, logger
 
@@ -23,7 +23,6 @@ class MainWindow:
         logger.info('init GUI..')
         self.opr = None
         self.__init_opr()
-        self.inv_fetcher = FetchInv()
 
         self.root = tk.Tk()
         self.root.geometry('960x540')
@@ -45,8 +44,9 @@ class MainWindow:
             self.opr = OPR()
             logger.info('OPR -ok')
         except Exception as exc:
-            logger.critical(f'OPR初始化错误：{exc}')
-            logger.error(f'An exception occurred: {traceback.format_exc()}')
+            logger.critical(f'An exception occurred: {traceback.format_exc()}')
+            self.opr = False
+            self.__opr_error = exc
 
     def set_background(self, png_path):
         bg_image = tk.PhotoImage(file=png_path)
@@ -66,6 +66,7 @@ class MainWindow:
                 button_position[1] += 40
             button = tk.Button(self.root, text=text, command=callback)
             button.place(x=button_position[0], y=button_position[1])
+            logger.info('Button[%s] at (%d, %d)' % (text, button_position[0], button_position[1]))
             button_position[0] += 90
             Tooltip(button, text if tips is None else tips)
 
@@ -89,8 +90,8 @@ class MainWindow:
             tips='自动烹饪完美料理！\n[ESC]键退出')
 
     def add_combobox(self):
-        inv_filelist = [filename for filename in os.listdir('cache/') if filename.startswith('inventory')]
-        logger.debug(inv_filelist)
+        inv_filelist = get_inv_filelist()
+        logger.debug(f'{inv_filelist=}')
         self.__combobox = Combobox(self.root, values=inv_filelist, state='readonly')
         self.__combobox.place(x=460, y=404)
         if self.__combobox['values']:
@@ -98,50 +99,61 @@ class MainWindow:
 
     def __check_opr_module(self) -> (bool, str):
         if self.opr is None:
-            return False, '请以管理员权限启动'
-        return True, 'OPR已启动'
+            return False, '请等待OPR启动'
+        elif self.opr is False:
+            return False, self.__opr_error
+        return True, 'OPR正常'
 
     def buy_commodities(self, shelf):
-        symbol, message = self.__check_opr_module()
         inv_file = self.__combobox.get()
         if not inv_file:
-            messagebox.showwarning('提示', '请先获取清单文件')
+            messagebox.showwarning('警告', '请先获取清单文件')
             return
-        logger.info(f'清单文件：「{inv_file}」')
+        logger.info(f'Used File: {inv_file}')
+        symbol, message = self.__check_opr_module()
         if symbol:
-            try:
-                symbol, message = self.opr.buy_commodities(shelf, inv_file)
-            except Exception as exc:
-                symbol, message = False, exc
-                logger.error(f'An exception occurred: {traceback.format_exc()}')
+            symbol, message = self.opr.buy_commodities(shelf, inv_file)
+            if message == '<refresh_access_token>':
+                api_key = simpledialog.askstring('「OCR」需要刷新令牌', 'Api Key:', show='·', parent=self.root)
+                secret_key = simpledialog.askstring('继续输入', 'Secret Key:', show='*', parent=self.root)
+                self.opr.ocr.refresh_access_token(api_key, secret_key)
+                if self.opr.ocr.access_token is None:
+                    message = '刷新token失败'
+                else:
+                    self.opr.ocr.save_ocr_keys(api_key, secret_key)
+                    symbol, message = True, '刷新token成功，请重新开始'
         messagebox.showinfo('完成' if symbol else '失败', message)
 
     def fetch_inventory(self):
-        share_code = simpledialog.askstring('输入', '分享码：')
+        inv_fetcher = FetchInv()
+        share_code = simpledialog.askstring('清单', '摹本分享码：', parent=self.root)
         if not share_code:
             return
         elif not (share_code.isdigit() and len(share_code) > 9):
-            messagebox.showwarning('提示', '分享码错误')
+            messagebox.showwarning('警告', '分享码错误')
             return
 
         for _ in range(2):
-            symbol, message = self.inv_fetcher.download_inventory(share_code=share_code)
+            symbol, message = inv_fetcher.download_inventory(share_code=share_code)
             # symbol, message = True, 'inventory_%s.xlsx' % share_code
             if symbol:
                 logger.info(f'获取清单成功，保存路径：「{message}」')
                 cur_vals = list(self.__combobox['values'])
+                for i, v in enumerate(cur_vals):
+                    if v == message:
+                        cur_vals.pop(i)
                 cur_vals.append(message)
                 self.__combobox['values'] = cur_vals
                 self.__combobox.current(len(cur_vals) - 1)
                 return
             elif message == '<set_cookie>':
-                cookie = simpledialog.askstring('输入', '请输入新的有效cookie')
-                self.inv_fetcher.web.set_cookie(cookie)
+                cookie = simpledialog.askstring('清单', '请输入新的有效cookie', parent=self.root)
+                inv_fetcher.web.set_cookie(cookie)
             else:
-                messagebox.showerror('失败', message)
+                messagebox.showerror('错误', message)
                 logger.error(f'获取失败：「{message}」')
                 return
-        messagebox.showwarning('cookie无效，请检查')
+        messagebox.showwarning('警告', 'cookie无效，请检查')
 
     def open_inventory(self):
         selected_file = self.__combobox.get()
@@ -150,7 +162,7 @@ class MainWindow:
     def play_plots(self):
         for thd in threading.enumerate():
             if thd.name == 'pp':
-                messagebox.showinfo('提示', '线程正在运行')
+                messagebox.showwarning('警告', '线程正在运行')
                 return
 
         def pp():
@@ -166,7 +178,8 @@ class MainWindow:
     def cooking(self):
         symbol, message = self.__check_opr_module()
         if symbol:
-            count = simpledialog.askinteger(' ', '请输入次数：', initialvalue=15, minvalue=1, maxvalue=20)
+            count = simpledialog.askinteger('烹饪', '请输入次数：',
+                                            initialvalue=15, minvalue=1, maxvalue=20, parent=self.root)
             if count is None:
                 return
             symbol, message = self.opr.cooking(count)
@@ -185,11 +198,11 @@ class MainWindow:
         if window.attributes('-topmost'):
             window.attributes('-topmost', False)
             self.root.deiconify()
-            bind_button.config(text='置顶')
+            bind_button.pub_config(text='置顶')
         else:
             window.attributes('-topmost', True)
             self.root.iconify()
-            bind_button.config(text='取消置顶')
+            bind_button.pub_config(text='取消置顶')
 
 
 class Tooltip:

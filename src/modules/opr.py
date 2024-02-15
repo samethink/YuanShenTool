@@ -17,7 +17,7 @@ from src.modules.base import Automize
 from src.modules.inv import HandleInv
 from src.modules.ocr import get_ocr
 from src.utils.img import count_pixels_of_color
-from src.utils.support import DEBUG_MODE, config, logger
+from src.utils.support import DEBUG_MODE, pub_config, logger
 
 
 class OPR:
@@ -32,11 +32,12 @@ class OPR:
     def __init_ocr(self):
         try:
             logger.info('init OPR.OCR..')
-            self.ocr = get_ocr(config['ocr_platform'])
+            self.ocr = get_ocr(pub_config['ocr_platform'])
             logger.info('OPR.OCR -ok')
         except Exception as exc:
             logger.error(f'An exception occurred: {traceback.format_exc()}')
-            self.ocr_exception = exc
+            self.ocr = False
+            self.__ocr_error = exc
 
     def cooking(self, count=1):
         if not self.auto.activate_window():
@@ -143,11 +144,13 @@ class OPR:
         :param inv_file: 保存清单的Excel文件名称
         :return: 返回成功标志，结果信息
         """
-        if hasattr(self, 'ocr_exception'):
-            return False, f'OCR启用不成功：{self.ocr_exception}'
-        elif self.ocr is None:
+        if self.ocr is None:
             return False, '请等待OCR完成初始化'
-        if not self.auto.activate_window():
+        elif self.ocr is False:
+            return False, f'OCR启用不成功：{self.__ocr_error}'
+        elif hasattr(self.ocr, 'access_token') and self.ocr.access_token is None:
+            return False, '<refresh_access_token>'
+        elif not self.auto.activate_window():
             return False, self.auto.window_title + '未启动！'
 
         logger.info(self.auto.window_title + '启动！')
@@ -163,7 +166,10 @@ class OPR:
                 return False, 'shelf参数错误'
         self.auto.waiting(1.5)
 
-        return ImplementBuyCommodities(self, inv_file).main(shelf)
+        try:
+            return ImplementBuyCommodities(self, inv_file).main(shelf)
+        except Exception as exc:
+            logger.error(f'An error occurred: {exc}')
 
 
 class ImplementBuyCommodities:

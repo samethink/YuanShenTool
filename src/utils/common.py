@@ -7,60 +7,59 @@ IDE: PyCharm
 Description: 通用工具方法
 """
 import json
-from os import path
 
 import yaml
 
 
 def get_abspath(ref_path, rel_path):
-    return path.abspath(path.join(path.dirname(ref_path), rel_path))
+    return ref_path[:ref_path.rfind('/') + 1] + rel_path
 
 
-def load_yaml_from_file(file_path):
-    with open(file_path, 'r', encoding='UTF-8') as fp:
+def load_yaml_from_file(filepath):
+    with open(filepath, 'r', encoding='UTF-8') as fp:
         return yaml.safe_load(fp)
 
 
-def dump_yaml_to_file(file_path, data, orderly=False):
-    with open(file_path, 'w', encoding='UTF-8') as fp:
+def dump_yaml_to_file(filepath, data, orderly=False):
+    with open(filepath, 'w', encoding='UTF-8') as fp:
         yaml.safe_dump(data, stream=fp, allow_unicode=True, sort_keys=orderly)
 
 
-def load_json_from_file(file_path):
-    with open(file_path, 'r', encoding='UTF-8') as fp:
+def load_json_from_file(filepath):
+    with open(filepath, 'r', encoding='UTF-8') as fp:
         return json.load(fp)
 
 
-def dump_json_to_file(file_path, data):
-    with open(file_path, 'w', encoding='UTF-8') as fp:
+def dump_json_to_file(filepath, data):
+    with open(filepath, 'w', encoding='UTF-8') as fp:
         json.dump(data, fp, ensure_ascii=False, indent=4)
 
 
-def read_config(file_path) -> dict | None:
-    suffix = file_path[file_path.rfind('.'):]
+def read_config(filepath):
+    suffix = filepath[filepath.rfind('.'):]
     match suffix:
-        case '.json':
-            return load_json_from_file(file_path)
-        case '.yaml' | '.yml':
-            return load_yaml_from_file(file_path)
-        case '.ini' | '.cfg':
+        case '.yml' | '.yaml':
+            return load_yaml_from_file(filepath)
+        case '.cfg' | '.ini':
             return None
+        case '.json':
+            return load_json_from_file(filepath)
         case _:
             return None
 
 
-def save_config(file_path, data):
-    suffix = file_path[file_path.rfind('.'):]
+def save_config(filepath, data):
+    suffix = filepath[filepath.rfind('.'):]
     match suffix:
+        case '.yml' | '.yaml':
+            dump_yaml_to_file(filepath, data)
+        case '.cfg' | '.ini':
+            pass
         case '.json':
-            dump_json_to_file(file_path, data)
-        case '.yaml' | '.yml':
-            dump_yaml_to_file(file_path, data)
-        case '.ini' | '.cfg':
-            return None
+            dump_json_to_file(filepath, data)
         case _:
-            return None
+            ...
 
 
 if __name__ == '__main__':
-    pass
+    print(get_abspath(__file__, '../../config.yml'))

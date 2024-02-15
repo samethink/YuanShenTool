@@ -2,6 +2,7 @@
 debug/
 cache/
 
+config/private.yml
 file_version_info.txt
 
 

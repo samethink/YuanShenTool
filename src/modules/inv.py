@@ -83,7 +83,7 @@ class FetchInv:
             self.__item_ids = {}
             os.makedirs(self.__icon_dir)
 
-    def download_inventory(self, share_code):
+    def fetch_inventory(self, share_code):
         """请求接口获得列表后，提取数据并保存为Excel文件
 
         :param share_code: 分享码
@@ -99,7 +99,7 @@ class FetchInv:
             if result['data']:
                 info_list = result['data']['list'] + result['data']['not_calc_list']
                 filename = 'inventory_%s.xlsx' % share_code
-                self.save_inventory_as_xlsx(info_list, filename)
+                self.__save_inventory_as_xlsx(info_list, filename)
                 return True, filename
             elif result['retcode'] == -100:
                 self.web.set_cookie(value='')
@@ -111,22 +111,22 @@ class FetchInv:
         except requests.JSONDecodeError:
             return False, '响应结果解析失败'
 
-    def save_inventory_as_xlsx(self, data: list[dict], filename):
-        """保存文件
+    def __save_inventory_as_xlsx(self, data: list[dict], filename):
+        """保存数据为Excel文件
 
         :param data: 响应数据的物品列表
         :param filename: 保存文件名
         :return:
         """
         saved_path = 'cache/' + filename
-        data.sort(key=lambda x: x['num'], reverse=True)
+        data.sort(key=lambda item: item['num'], reverse=True)
 
         titles = ['ID', '等级', '名称', '图片', '需求数量', '已有数量']
         self.__worksheet.append(titles)
         for col in range(1, 7):
             cell = self.__worksheet.cell(1, col)
-            cell.fill = PatternFill(start_color='00DDBB', fill_type='solid')
-            cell.font = Font(bold=True)
+            cell.fill = PatternFill(start_color='2CC544', end_color='00FF00', fill_type='solid')
+            cell.font = Font(bold=False, color='FFFFFF', italic=True)
             cell.alignment = Alignment(horizontal='center', vertical='center')
         self.__worksheet.row_dimensions[1].height = 20
 
@@ -140,7 +140,7 @@ class FetchInv:
 
             if pub_config['insert_image']:
                 try:
-                    image = self.get_item_icon(data[i])
+                    image = self.__get_item_icon(data[i])
                     image.width, image.height = 40, 40
                     self.__worksheet.add_image(image, 'D' + str(row))
                 except requests.RequestException:
@@ -159,7 +159,7 @@ class FetchInv:
         self.__workbook.save(saved_path)
         os.system('start ' if SYSTEM_NAME == 'Windows' else 'open ' + saved_path)
 
-    def get_item_icon(self, item):
+    def __get_item_icon(self, item):
         """获取物品的图标，本地无对应图标时下载并缓存
 
         :param item: 保存物品信息的项目
@@ -188,9 +188,9 @@ class HandleInv:
         self.__workbook = load_workbook(self.__source_path)
         self.__worksheet = self.__workbook.active
         self.data = {}
-        self._set_data()
+        self.__set_data()
 
-    def _set_data(self):
+    def __set_data(self):
         """读取Excel表数据"""
         for row in range(2, self.__worksheet.max_row + 1):
             self.data[self.__worksheet.cell(row, 3).value] = [

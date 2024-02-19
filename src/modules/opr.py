@@ -6,6 +6,7 @@ Path: src/modules/opr.py
 IDE: PyCharm
 Description: 定义窗口自动化的具体操作
 """
+import ctypes
 import threading
 import time
 import traceback
@@ -22,7 +23,10 @@ from src.utils.support import DEBUG_MODE, logger, pub_config
 
 class OPR:
     def __init__(self):
-        self.auto = Automize(window_title='原神', window_classname='UnityWndClass', _admin_permission_required=True)
+        if not ctypes.windll.shell32.IsUserAnAdmin():
+            raise PermissionError('未获得管理员权限，无法操作窗口')
+
+        self.auto = Automize(window_title='原神', window_classname='UnityWndClass')
         self.ocr = None
         init_ocr_thr = threading.Thread(target=self.__init_ocr, name='init_ocr')
         init_ocr_thr.daemon = True
@@ -191,7 +195,7 @@ class ImplementBuyCommodities:
 
         first_text = ''
         while not (self.stop_execution or self.opr.StopAll):
-            screenshot = self.opr.auto.take_screenshot(*self.rect_left_top, *self.rect_right_bottom)
+            screenshot = self.opr.auto.take_screenshot_as_png(*self.rect_left_top, *self.rect_right_bottom)
             detected_items = self.opr.ocr.scan_image(screenshot, ret_detail=True, compression_ratio=0.5)
             if not detected_items:
                 return False, '(っ °Д °;)っ解析结果是空的'
@@ -218,7 +222,7 @@ class ImplementBuyCommodities:
             self.opr.auto.scroll(-45)
 
             # 检查是否已售罄
-            sellout_image = self.opr.auto.take_screenshot(1200, 110, 1350, 250)
+            sellout_image = self.opr.auto.take_screenshot_as_png(1200, 110, 1350, 250)
             temp_items = self.opr.ocr.scan_image(sellout_image, ret_detail=False)
             if temp_items and temp_items[0] in ['已售罄', '已掌握该配方']:
                 logger.info('剩余商品已无法购买')
@@ -276,7 +280,7 @@ class ImplementBuyCommodities:
         return False
 
     def click_increase_purchase_num_button(self, real_needed_num):
-        max_number_image = self.opr.auto.take_screenshot(1190, 580, 1260, 620)
+        max_number_image = self.opr.auto.take_screenshot_as_png(1190, 580, 1260, 620)
         temp_items = self.opr.ocr.scan_image(max_number_image, ret_detail=False)
         if temp_items and temp_items[0].isdigit():
             limited_num = int(temp_items[0])
